@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Boss Stage Game</title>
+  <style>
+    body { margin: 0; background: #000; color: #fff; font-family: sans-serif; text-align: center; }
+    canvas { display: block; margin: 10px auto; border: 3px solid #555; background: #222; }
+    #ui, #upgradeMenu {
+      text-align: center;
+      margin: 10px;
+    }
+    button {
+      padding: 10px 15px;
+      margin: 8px;
+      font-size: 16px;
+    }
+    #upgradeMenu { display: none; }
+  </style>
+</head>
+<body>
+  <h1>🛡️ Boss Stage Game</h1>
+  <canvas id="gameCanvas" width="640" height="480"></canvas>
+  <div id="ui">
+    <span id="stageInfo">Stage: 1</span> |
+    <span id="hpInfo">HP: 100</span> |
+    <span id="coinInfo">Coins: 0</span>
+  </div>
+  <div id="upgradeMenu">
+    <h2>Upgrade!</h2>
+    <button onclick="upgrade('hp')">+20 HP (15 coins)</button>
+    <button onclick="upgrade('atk')">+10 ATK (25 coins)</button>
+    <button onclick="upgrade('speed')">+1 Speed (20 coins)</button>
+    <br><br>
+    <button onclick="nextStage()">Continue</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    const W = canvas.width;
+    const H = canvas.height;
+
+    let player = { x: 300, y: 420, w: 40, h: 40, hp: 100, maxHp: 100, atk: 20, speed: 5 };
+    let bullets = [], enemies = [], pickups = [];
+    let stage = 1, coins = 0, gameOver = false, inUpgrade = false;
+
+    const keys = {};
+    document.addEventListener("keydown", e => keys[e.code] = true);
+    document.addEventListener("keyup", e => keys[e.code] = false);
+
+    const img = {};
+    const loadImage = (name, src) => new Promise(res => {
+      const image = new Image();
+      image.onload = () => { img[name] = image; res(); };
+      image.src = src;
+    });
+
+    const assets = [
+      ['player', 'player.png'],
+      ['enemy', 'enemy.png'],
+      ['boss', 'boss.png'],
+      ['coin', 'coin.png'],
+      ['hp', 'hp.png'],
+      ['bg', 'background.jpg']
+    ];
+
+    function drawHealthBar(x, y, w, h, val, max) {
+      ctx.fillStyle = "#222";
+      ctx.fillRect(x, y, w, h);
+      ctx.fillStyle = "#0f0";
+      ctx.fillRect(x, y, w * (val / max), h);
+      ctx.strokeStyle = "#fff";
+      ctx.strokeRect(x, y, w, h);
+    }
+
+    function updateUI() {
+      document.getElementById("stageInfo").innerText = `Stage: ${stage}`;
+      document.getElementById("hpInfo").innerText = `HP: ${player.hp}`;
+      document.getElementById("coinInfo").innerText = `Coins: ${coins}`;
+    }
+
+    function spawnStage() {
+      enemies = [];
+      bullets = [];
+      pickups = [
+        { x: 100, y: 300, w: 20, h: 20, type: "hp" },
+        { x: 500, y: 250, w: 20, h: 20, type: "coin" }
+      ];
+      for (let i = 0; i < 4 + stage * 2; i++) {
+        enemies.push({
+          x: Math.random() * (W - 40), y: 60 + (i % 3) * 40, w: 30, h: 30,
+          hp: 30 + stage * 10, vx: (Math.random() > 0.5 ? 1 : -1) * (1 + stage * 0.2),
+          boss: false
+        });
+      }
+      enemies.push({ x: 300, y: 100, w: 60, h: 60, hp: 200 + stage * 50, vx: 2, boss: true });
+    }
+
+    function shoot() {
+      bullets.push({ x: player.x + player.w / 2 - 5, y: player.y, w: 10, h: 10, vy: -7 });
+    }
+
+    function upgrade(type) {
+      if (type === "hp" && coins >= 15) {
+        player.hp += 20;
+        player.maxHp += 20;
+        coins -= 15;
+      } else if (type === "atk" && coins >= 25) {
+        player.atk += 10;
+        coins -= 25;
+      } else if (type === "speed" && coins >= 20) {
+        player.speed += 1;
+        coins -= 20;
+      }
+      updateUI();
+    }
+
+    function nextStage() {
+      stage++;
+      document.getElementById("upgradeMenu").style.display = "none";
+      inUpgrade = false;
+      spawnStage();
+    }
+
+    function checkCollisions() {
+      bullets.forEach(b => {
+        enemies.forEach(e => {
+          if (b.x < e.x + e.w && b.x + b.w > e.x && b.y < e.y + e.h && b.y + b.h > e.y) {
+            e.hp -= player.atk;
+            b.hit = true;
+          }
+        });
+      });
+      bullets = bullets.filter(b => !b.hit && b.y > 0);
+
+      pickups = pickups.filter(p => {
+        if (player.x < p.x + p.w && player.x + player.w > p.x && player.y < p.y + p.h && player.y + player.h > p.y) {
+          if (p.type === "hp") player.hp = Math.min(player.maxHp, player.hp + 30);
+          if (p.type === "coin") coins += 10;
+          return false;
+        }
+        return true;
+      });
+
+      enemies = enemies.filter(e => {
+        if (e.hp <= 0) {
+          coins += e.boss ? 30 : 5;
+          return false;
+        }
+        return true;
+      });
+
+      if (player.hp <= 0) gameOver = true;
+      if (enemies.length === 0 && !inUpgrade) {
+        inUpgrade = true;
+        document.getElementById("upgradeMenu").style.display = "block";
+      }
+    }
+
+    function update() {
+      if (gameOver || inUpgrade) return;
+
+      if (keys["ArrowLeft"] && player.x > 0) player.x -= player.speed;
+      if (keys["ArrowRight"] && player.x + player.w < W) player.x += player.speed;
+      if (keys["Space"] && !keys._spaceHeld) {
+        shoot();
+        keys._spaceHeld = true;
+      }
+      if (!keys["Space"]) keys._spaceHeld = false;
+
+      bullets.forEach(b => b.y += b.vy);
+      enemies.forEach(e => {
+        e.x += e.vx;
+        if (e.x <= 0 || e.x + e.w >= W) e.vx *= -1;
+      });
+
+      checkCollisions();
+    }
+
+    function draw() {
+      ctx.drawImage(img.bg, 0, 0, W, H);
+      ctx.drawImage(img.player, player.x, player.y, player.w, player.h);
+      drawHealthBar(player.x, player.y - 10, player.w, 6, player.hp, player.maxHp);
+
+      bullets.forEach(b => {
+        ctx.fillStyle = "#ff0";
+        ctx.fillRect(b.x, b.y, b.w, b.h);
+      });
+
+      enemies.forEach(e => {
+        let image = e.boss ? img.boss : img.enemy;
+        ctx.drawImage(image, e.x, e.y, e.w, e.h);
+        if (e.boss) drawHealthBar(e.x, e.y - 5, e.w, 4, e.hp, 200 + stage * 50);
+      });
