@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>⚾ Baseball Role Switch Game</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background: #f0f8ff;
+      padding: 20px;
+    }
+    h1 { color: #333; }
+    button {
+      padding: 12px 20px;
+      margin: 5px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    #output {
+      background: #fff;
+      padding: 15px;
+      border: 1px solid #ccc;
+      margin-top: 15px;
+      min-height: 100px;
+      font-size: 18px;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+
+<h1>⚾ Role-Switch Baseball Game</h1>
+<p><b>Inning: <span id="inning">1</span> | Role: <span id="role">Offense</span></b></p>
+
+<!-- Offense controls -->
+<div id="offense-controls">
+  <button onclick="swing()">Swing!</button>
+</div>
+
+<!-- Defense controls -->
+<div id="defense-controls" style="display: none;">
+  <button onclick="throwPitch('fastball')">Fastball</button>
+  <button onclick="throwPitch('curveball')">Curveball</button>
+  <button onclick="throwPitch('slider')">Slider</button>
+</div>
+
+<button onclick="switchRole()">🔁 Switch Role</button>
+<button onclick="resetGame()">Reset Game</button>
+
+<div id="output">Game ready. You are batting first. Click "Swing!" to begin.</div>
+
+<script>
+let playerScore = 0;
+let aiScore = 0;
+let strikes = 0;
+let outs = 0;
+let inning = 1;
+let role = "offense"; // or "defense"
+
+function updateUI(message) {
+  document.getElementById("inning").innerText = inning;
+  document.getElementById("role").innerText = role === "offense" ? "Offense (Batting)" : "Defense (Pitching)";
+  document.getElementById("output").innerText = message + `\nScore — You: ${playerScore}, AI: ${aiScore}`;
+  document.getElementById("offense-controls").style.display = role === "offense" ? "block" : "none";
+  document.getElementById("defense-controls").style.display = role === "defense" ? "block" : "none";
+}
+
+function swing() {
+  if (role !== "offense") return;
+
+  const pitchTypes = ["fastball", "curveball", "slider"];
+  const pitch = pitchTypes[Math.floor(Math.random() * pitchTypes.length)];
+  const chance = Math.random();
+  let message = `AI threw a ${pitch}. `;
+
+  if (chance < 0.2) {
+    strikes++;
+    message += "You missed! Strike.";
+  } else if (chance < 0.4) {
+    outs++;
+    message += "Fly out!";
+    strikes = 0;
+  } else {
+    playerScore++;
+    message += "You hit a home run!";
+    strikes = 0;
+  }
+
+  if (strikes >= 3) {
+    outs++;
+    message += " Strikeout!";
+    strikes = 0;
+  }
+
+  if (outs >= 3) {
+    message += " Inning over. Switch roles!";
+    inning++;
+    outs = 0;
+    role = "defense";
+  }
+
+  updateUI(message);
+}
+
+function throwPitch(pitchType) {
+  if (role !== "defense") return;
+
+  const aiSwingChance = Math.random();
+  let message = `You threw a ${pitchType}. `;
+
+  if (pitchType === "fastball") {
+    if (aiSwingChance < 0.2) {
+      message += "Strike! AI missed.";
+    } else if (aiSwingChance < 0.5) {
+      aiScore++;
+      message += "AI hits a home run!";
+    } else {
+      message += "AI fouled it off.";
+    }
+  } else if (pitchType === "curveball") {
+    if (aiSwingChance < 0.4) {
+      aiScore++;
+      message += "AI hits a double!";
+    } else {
+      message += "AI missed. Strike!";
+    }
+  } else if (pitchType === "slider") {
+    if (aiSwingChance < 0.1) {
+      message += "Perfect pitch! Strike!";
+    } else if (aiSwingChance < 0.6) {
+      aiScore++;
+      message += "AI gets a solid hit!";
+    } else {
+      message += "AI swings and misses.";
+    }
+  }
+
+  outs++;
+  if (outs >= 3) {
+    message += " Inning over. Switch roles!";
+    inning++;
+    outs = 0;
+    role = "offense";
+  }
+
+  updateUI(message);
+}
+
+function switchRole() {
+  role = role === "offense" ? "defense" : "offense";
+  updateUI("Role switched.");
+}
+
+function resetGame() {
+  playerScore = 0;
+  aiScore = 0;
+  strikes = 0;
+  outs = 0;
+  inning = 1;
+  role = "offense";
+  updateUI("Game reset. You are batting first.");
+}
+
+updateUI("Game ready. You are batting first. Click 'Swing!' to begin.");
+</script>
+
+</body>
+</html>
